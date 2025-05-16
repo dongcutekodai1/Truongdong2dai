@@ -13,7 +13,7 @@ keep_alive()
 
 
 # === CẤU HÌNH ===
-TOKEN = "8197588131:AAGiwSghzUddRJelWRviSF-H_eO_FgbZ7lc"
+TOKEN = "8197588131:AAHHsc4_12wbXg2wbcRb86Vab4RhqSCTy-A"
 ADMIN_ID = 6381480476 # ID admin chính
 activated_users = {}
 now = datetime.now().strftime("%H:%M:%S - %d/%m/%Y")
