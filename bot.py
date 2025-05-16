@@ -13,7 +13,7 @@ keep_alive()
 
 
 # === CẤU HÌNH ===
-TOKEN = "8197588131:AAGO1wgPObJMMD8ps-bD6K4L71xn64vTgqk"
+TOKEN = "8197588131:AAGiwSghzUddRJelWRviSF-H_eO_FgbZ7lc"
 ADMIN_ID = 6381480476 # ID admin chính
 activated_users = {}
 now = datetime.now().strftime("%H:%M:%S - %d/%m/%Y")
@@ -216,7 +216,7 @@ async def help_cmd(message: types.Message):
         text += "🗓 /danhsach - Danh sách người dùng\n"
         text += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
     text += "ℹ️ Gửi chuỗi MD5 (32 ký tự) để phân tích ngay!\n"
-    text += "📞 Liên hệ hỗ trợ: https://t.me/qqaassdd1231"
+    text += "📞 Liên hệ hỗ trợ: https://t.me/truongdong1920"
     await message.reply(text)
 
 @dp.message_handler(commands=["id"])
@@ -235,7 +235,7 @@ async def id_cmd(message: types.Message):
         f"⏰ Hạn Dùng: {exp}",
         f"⏰ Thời gian kiểm tra: {now}",
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-        f"📞 Liên hệ:https://t.me/qqaassdd1231"
+        f"📞 Liên hệ:https://t.me/truongdong1920"
     ]
     await message.reply("\n".join(text))
 
