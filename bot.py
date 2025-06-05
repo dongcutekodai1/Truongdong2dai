@@ -229,7 +229,7 @@ async def admin_management_handler(message: types.Message):
     else:
         if admin_id not in admins:
             await message.reply(f"⚠️ ID {admin_id} không phải admin.")
-        elif admin_id == 6906617636:  # Default admin ID
+        elif admin_id == 6381480476:  # Default admin ID
             await message.reply("❌ Không thể xóa admin mặc định.")
         else:
             admins.remove(admin_id)
