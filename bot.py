@@ -57,7 +57,7 @@ def load_admins():
         except Exception as e:
             print(f"Warning: Error loading {ADMINS_FILE}: {e}. Reverting to default.")
     
-    default_admins = [6906617636]  # Default admin ID
+    default_admins = [6381480476]  # Default admin ID
     try:
         with open(ADMINS_FILE, "w", encoding="utf-8") as f:
             json.dump(default_admins, f, indent=2)
