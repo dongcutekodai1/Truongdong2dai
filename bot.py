@@ -10,7 +10,7 @@ keep_alive()
 
 # !!! QUAN TRỌNG: Hãy thay thế TOKEN và ADMIN_USERNAME bằng thông tin thực tế của bạn !!!
 TOKEN = "8076967422:AAFfQfggn_PdDQx5uBtUnAZO-PlsNo9eNnI" # ĐÂY LÀ TOKEN VÍ DỤ, HÃY THAY THẾ
-ADMIN_USERNAME = "Truongdong1920" # Thay thế bằng username admin của bạn
+ADMIN_USERNAME = "truongdong1920" # Thay thế bằng username admin của bạn
 XU_COST = 1
 
 HISTORY_FILE = "lich_su.json"
