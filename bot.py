@@ -63,24 +63,14 @@ def admin_only(handler):
     return wrapper
 
 # Keyboard generator
-def get_user_keyboard(user_id):
-    if user_id in admins:
-        return ReplyKeyboardMarkup(
-            keyboard=[
-                [KeyboardButton(text="Gửi MD5 để phân tích"), KeyboardButton(text="Bảng giá xu")],
-                [KeyboardButton(text="Cấp xu"), KeyboardButton(text="Thêm admin"), KeyboardButton(text="Xóa admin")],
-                [KeyboardButton(text="Liên hệ admin"), KeyboardButton(text="Danh sách người dùng")]
-            ],
-            resize_keyboard=True
-        )
-    else:
-        return ReplyKeyboardMarkup(
-            keyboard=[
-                [KeyboardButton(text="Gửi MD5 để phân tích"), KeyboardButton(text="Bảng giá xu")],
-                [KeyboardButton(text="Liên hệ admin")],
-            ],
-            resize_keyboard=True
-        )
+def get_user_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="Gửi MD5 để phân tích"), KeyboardButton(text="Bảng giá xu")],
+            [KeyboardButton(text="Liên hệ admin")],
+        ],
+        resize_keyboard=True
+    )
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
@@ -147,7 +137,7 @@ async def start_handler(message: types.Message):
         "Chọn chức năng bên dưới để bắt đầu trải nghiệm nhé!"
     )
     
-    await message.reply(welcome_msg, reply_markup=get_user_keyboard(user_id))
+    await message.reply(welcome_msg, reply_markup=get_user_keyboard())
 
 @dp.message_handler(lambda message: message.text == "Thoát")
 async def exit_handler(message: types.Message):
@@ -167,66 +157,66 @@ async def show_xu_price_table(message: types.Message):
         "100 Xu = 85,000 VNĐ (-15% giảm giá)\n\n"
         "Liên hệ admin để mua số lượng lớn với giá tốt hơn!"
     )
-    await message.reply(xu_table, parse_mode="Markdown", reply_markup=get_user_keyboard(message.from_user.id))
+    await message.reply(xu_table, parse_mode="Markdown", reply_markup=get_user_keyboard())
 
-@dp.message_handler(lambda message: message.text == "Cấp xu")
+@dp.message_handler(commands=['capxu'])
 @admin_only
 async def cap_xu_handler(message: types.Message):
-    await message.reply(
-        "Nhập theo định dạng: `ID_XU`\nVí dụ: `123456789_100` (cấp 100 Xu cho user 123456789)",
-        parse_mode="Markdown",
-        reply_markup=get_user_keyboard(message.from_user.id)
-    )
-
-@dp.message_handler(lambda message: re.fullmatch(r"\d+_\d+", message.text or ""))
-@admin_only
-async def cap_xu_process(message: types.Message):
+    args = message.get_args()
+    if not args:
+        await message.reply(
+            "Nhập theo định dạng: /capxu ID_XU\nVí dụ: /capxu 123456789 100 (cấp 100 Xu cho user 123456789)",
+            parse_mode="Markdown"
+        )
+        return
+    
     try:
-        user_id_str, xu_str = message.text.split("_")
-        user_id = int(user_id_str)
-        xu_cung_cap = int(xu_str)
+        parts = args.split()
+        if len(parts) != 2:
+            raise ValueError("Sai định dạng")
+            
+        user_id = int(parts[0])
+        xu_cung_cap = int(parts[1])
 
         current_xu = user_xu.get(str(user_id), 0)
         user_xu[str(user_id)] = current_xu + xu_cung_cap
         save_user_xu()
         
         await message.reply(
-            f"✅ Đã cấp {xu_cung_cap} xu cho user ID {user_id}.",
-            reply_markup=get_user_keyboard(message.from_user.id)
+            f"✅ Đã cấp {xu_cung_cap} xu cho user ID {user_id}."
         )
     except Exception as e:
-        await message.reply(f"❌ Lỗi: {str(e)}")
+        await message.reply(f"❌ Lỗi: {str(e)}\nĐúng định dạng: /capxu ID SỐ_XU")
 
-@dp.message_handler(lambda message: message.text == "Thêm admin")
+@dp.message_handler(commands=['addadmin'])
 @admin_only
 async def add_admin_handler(message: types.Message):
-    await message.reply(
-        "Nhập ID người dùng muốn thêm làm Admin:",
-        reply_markup=get_user_keyboard(message.from_user.id)
-    )
-
-@dp.message_handler(lambda message: message.text == "Xóa admin")
-@admin_only
-async def remove_admin_handler(message: types.Message):
-    await message.reply(
-        "Nhập ID người dùng muốn xóa khỏi Admin:",
-        reply_markup=get_user_keyboard(message.from_user.id)
-    )
-
-@dp.message_handler(lambda message: message.text.isdigit() and message.reply_to_message and 
-                   (message.reply_to_message.text == "Nhập ID người dùng muốn thêm làm Admin:" or 
-                    message.reply_to_message.text == "Nhập ID người dùng muốn xóa khỏi Admin:"))
-@admin_only
-async def admin_management_handler(message: types.Message):
-    admin_id = int(message.text)
-    if message.reply_to_message.text.startswith("Nhập ID người dùng muốn thêm"):
+    args = message.get_args()
+    if not args:
+        await message.reply("Nhập ID người dùng muốn thêm làm Admin: /addadmin USER_ID")
+        return
+    
+    try:
+        admin_id = int(args)
         if admin_id in admins:
             await message.reply(f"⚠️ ID {admin_id} đã là admin rồi.")
         else:
             admins.append(admin_id)
             save_admins(admins)
             await message.reply(f"✅ Đã thêm ID {admin_id} vào danh sách admin.")
-    else:
+    except ValueError:
+        await message.reply("❌ ID phải là số nguyên")
+
+@dp.message_handler(commands=['deladmin'])
+@admin_only
+async def remove_admin_handler(message: types.Message):
+    args = message.get_args()
+    if not args:
+        await message.reply("Nhập ID người dùng muốn xóa khỏi Admin: /deladmin USER_ID")
+        return
+    
+    try:
+        admin_id = int(args)
         if admin_id not in admins:
             await message.reply(f"⚠️ ID {admin_id} không phải admin.")
         elif admin_id == 6381480476:  # Default admin ID
@@ -235,25 +225,17 @@ async def admin_management_handler(message: types.Message):
             admins.remove(admin_id)
             save_admins(admins)
             await message.reply(f"✅ Đã xóa ID {admin_id} khỏi danh sách admin.")
+    except ValueError:
+        await message.reply("❌ ID phải là số nguyên")
 
 @dp.message_handler(lambda message: message.text == "Liên hệ admin")
 async def contact_admin_handler(message: types.Message):
     await message.reply(
         f"👉 Liên hệ admin: https://t.me/{ADMIN_USERNAME}",
-        reply_markup=get_user_keyboard(message.from_user.id)
+        reply_markup=get_user_keyboard()
     )
 
-@dp.message_handler(lambda message: message.text == "Gửi thông báo")
-@admin_only
-async def broadcast_prompt(message: types.Message):
-    await message.reply(
-        "Nhập nội dung thông báo bạn muốn gửi đến tất cả người dùng:",
-        reply_markup=ReplyKeyboardRemove()
-    )
-
-@dp.message_handler(lambda message: message.reply_to_message and 
-                   message.reply_to_message.text == "Nhập nội dung thông báo bạn muốn gửi đến tất cả người dùng:")
-@dp.message_handler(commands=["broadcast"])
+@dp.message_handler(commands=['broadcast'])
 @admin_only
 async def broadcast_message(message: types.Message):
     content = message.get_args()
@@ -274,11 +256,10 @@ async def broadcast_message(message: types.Message):
             print(f"Lỗi gửi tin nhắn user {user_id}: {e}")
     
     await message.reply(
-        f"✅ Đã gửi thông báo đến {success} người dùng.\n❌ Không gửi được đến {failed} người.",
-        reply_markup=get_user_keyboard(message.from_user.id)
+        f"✅ Đã gửi thông báo đến {success} người dùng.\n❌ Không gửi được đến {failed} người."
     )
 
-@dp.message_handler(lambda message: message.text == "Danh sách người dùng")
+@dp.message_handler(commands=['users'])
 @admin_only
 async def user_list_handler(message: types.Message):
     if not user_xu:
@@ -289,14 +270,11 @@ async def user_list_handler(message: types.Message):
     for user_id, xu in user_xu.items():
         user_list += f"• ID: {user_id} - Xu: {xu}\n"
     
-    await message.reply(
-        user_list,
-        reply_markup=get_user_keyboard(message.from_user.id)
-    )
+    await message.reply(user_list)
 
 @dp.message_handler(regexp=r"^[a-f0-9]{32}$")
 async def md5_analyze_handler(message: types.Message):
-    md5_hash = message.text.lower()  # Bạn dùng biến này
+    md5_hash = message.text.lower()
     user_id = str(message.from_user.id)
     
     if user_id not in user_xu:
@@ -305,7 +283,7 @@ async def md5_analyze_handler(message: types.Message):
     if user_xu[user_id] < XU_COST:
         await message.reply(
             f"❌ Bạn không đủ {XU_COST} xu để phân tích MD5.\nVui lòng liên hệ admin để mua thêm xu.",
-            reply_markup=get_user_keyboard(message.from_user.id)
+            reply_markup=get_user_keyboard()
         )
         return
     await message.reply("🔍 Đang phân tích mã MD5, vui lòng chờ...")
@@ -327,7 +305,7 @@ async def md5_analyze_handler(message: types.Message):
     await message.reply(
         reply_text,
         parse_mode="Markdown",
-        reply_markup=get_user_keyboard(message.from_user.id)
+        reply_markup=get_user_keyboard()
     )
 
 if __name__ == "__main__":
