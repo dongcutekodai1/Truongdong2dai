@@ -6,8 +6,8 @@ from functools import wraps
 from keep_alive import keep_alive
 keep_alive()
 
-TOKEN = "8076967422:AAHAacz8x1NJSLd6ONuLx3Hz_jYJZui6VVw"
-ADMIN_USERNAME = "Truongdong1920"
+TOKEN = "7577225346:AAFtopFKm_08geofmcNa5NKdn4Q-HF9pyJw"
+ADMIN_USERNAME = "Cstooldudoan11"
 XU_COST = 1
 
 HISTORY_FILE = "lich_su.json"
@@ -29,7 +29,7 @@ def load_admins():
         with open(ADMINS_FILE, "r") as f:
             return json.load(f)
     else:
-        default_admins = [6381480476]  # Default admin ID
+        default_admins = [6906617636]  # Default admin ID
         with open(ADMINS_FILE, "w") as f:
             json.dump(default_admins, f, indent=2)
         return default_admins
@@ -229,7 +229,7 @@ async def admin_management_handler(message: types.Message):
     else:
         if admin_id not in admins:
             await message.reply(f"⚠️ ID {admin_id} không phải admin.")
-        elif admin_id == 6381480476:  # Default admin ID
+        elif admin_id == 6906617636:  # Default admin ID
             await message.reply("❌ Không thể xóa admin mặc định.")
         else:
             admins.remove(admin_id)
