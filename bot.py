@@ -2,15 +2,24 @@ import logging
 import json
 from datetime import datetime
 from aiogram import Bot, Dispatcher, types, executor
+from collections import Counter
 from aiogram.types import ParseMode
 from datetime import timedelta
 import pytz
 import hashlib
 import math
+from collections import Counter
+from collections import Counter
+from math import log2
+
+def entropy(s):
+    prob = [v / len(s) for v in Counter(s).values()]
+    return -sum(p * log2(p) for p in prob)
+
 
 # === CẤU HÌNH ===
 TOKEN = "8432695700:AAF1_Q30qhMpOAL2ZhsgnVsQF0_l9wZwP2E"
-ADMIN_ID =[6902698316,6381480476] # ID admin chính
+ADMIN_ID = 6902698316,6381480476  # ID admin chính
 
 activated_users = {}
 
@@ -83,107 +92,111 @@ async def deactivate_user(user_id: int):
     except Exception as e:
         logging.error(f"Lỗi khi gửi tin nhắn hủy kích hoạt: {e}")
            
-def generate_sha224(md5_hash):
-    return hashlib.sha224(md5_hash.encode('utf-8')).hexdigest()
+def calc_result(md5):
+    num = int(md5, 16)
+    xiu = num % 100
+    tai = 100 - xiu
+    return xiu, tai
 
-def calculate_entropy(md5_hash):
-    freq = Counter(md5_hash)
-    prob = [freq[char] / len(md5_hash) for char in freq]
-    entropy = -sum(p * math.log2(p) for p in prob)
-    return round(entropy, 4)
+def get_dice(md5: str, num_dice=3):
+    # Lấy các ký tự hex đầu tiên theo số lượng cần dùng
+    digits = [int(c, 16) % 6 + 1 for c in md5[:num_dice]]
+    return digits, sum(digits)
 
-def geometric_mean(values):
-    product = 1
-    for value in values:
-        product *= value
-    return product ** (1 / len(values))
+def ai_score(xiu, tai, ent):
+    diff = abs(xiu - tai)
+    balance = 100 - abs(50 - xiu) * 2
+    rand_boost = max(0, (ent - 3.5) * 15)
+    return min(100.0, diff * 1.3 + balance * 0.5 + rand_boost)
 
-def bit_1_ratio(md5_hash):
-    binary_rep = bin(int(md5_hash, 16))[2:].zfill(128)
-    return binary_rep.count("1") / len(binary_rep)
+def deep_score(md5):
+    sha = hashlib.sha256(md5.encode()).hexdigest()
+    ent_md5, ent_sha = entropy(md5), entropy(sha)
+    diff = abs(ent_md5 - ent_sha)
+    rep_pen = sum(md5.count(c) > 2 for c in set(md5)) / len(set(md5))
+    half = len(md5)//2
+    sym = sum(1 for a,b in zip(md5[:half], md5[-half:]) if a==b) / half
+    score = (ent_sha * 10) + (50 - diff * 20) + (sym * 30) - (rep_pen * 15)
+    return max(0.0, min(100.0, score))
 
-def hex_greater_than_8_ratio(md5_hash):
-    return sum(1 for char in md5_hash if int(char, 16) >= 8) / len(md5_hash)
+def draw_bar(label, val, color):
+    bar = "█" * int(30 * val / 100) + "-" * (30 - int(30 * val / 100))
+    print(f"{color}{BOLD}{label:<5} |{bar}| {val:6.2f}%{RESET}")
 
-def standard_deviation(values):
-    mean = sum(values) / len(values)
-    return math.sqrt(sum((x - mean) ** 2 for x in values) / len(values))
-
-def fibonacci_mod(x, mod):
-    fib = [0, 1]
-    while len(fib) <= x:
-        fib.append(fib[-1] + fib[-2])
-    return fib[x] % mod
-
-def analyze_md5_advanced(md5_hash):
-    hex_pairs = [int(md5_hash[i:i+2], 16) for i in range(0, len(md5_hash), 2)]
-    md5_int = int(md5_hash, 16)
-
-    digits_sum = sum(int(char, 16) for char in md5_hash)
-    hex_sum = sum(hex_pairs)
-    binary_ones = bin(md5_int).count("1")
-    bit_1_percentage = bit_1_ratio(md5_hash)
-    hex_greater_than_8 = hex_greater_than_8_ratio(md5_hash)
-    
-    xor_value = 0
-    for value in hex_pairs:
-        xor_value ^= value
-
-    lucas = [2, 1]
-    for _ in range(14):
-        lucas.append(lucas[-1] + lucas[-2])
-    lucas_weighted_sum = sum(a * b for a, b in zip(hex_pairs[:15], lucas[:15]))
-
-    hex_std_dev = standard_deviation(hex_pairs)
-    complexity = len(set(md5_hash))
-    fourier_energy = sum(abs(hex_pairs[i] - hex_pairs[i - 1]) for i in range(1, len(hex_pairs)))
-
-    sha224_hash = generate_sha224(md5_hash)
-    sha224_sum = sum(int(sha224_hash[i:i+2], 16) for i in range(0, len(sha224_hash), 2))
-
-    first_half, second_half = md5_hash[:16], md5_hash[16:]
-    symmetry_score = sum(1 for i in range(16) if first_half[i] == second_half[i])
-    geometric_mean_value = geometric_mean(hex_pairs)
-    combined_xor = xor_value ^ int(sha224_hash[:2], 16)
-    fibonacci_score = fibonacci_mod(digits_sum, 100)
-
-    blake2b_xor = 0
-    for i in range(0, len(sha224_hash), 2):
-        blake2b_xor ^= int(sha224_hash[i:i+2], 16)
-
-    weighted_edge = (hex_pairs[0] * 3 + hex_pairs[-1] * 2) % 100
-    prime_mods = [43, 47, 53, 59, 61, 67]
-    mod_values = [hex_sum % prime for prime in prime_mods]
-    max_repeating_char = max(md5_hash.count(char) for char in set(md5_hash))
-    odd_chars = sum(1 for char in md5_hash if int(char, 16) % 2 == 1)
-    middle_bytes = sum(hex_pairs[len(hex_pairs)//4: 3*len(hex_pairs)//4])
-    fibo_in_md5 = sum(1 for char in md5_hash if char in '12358')
-    sha1_symmetry = sum(1 for i in range(16) if sha224_hash[i] == sha224_hash[39-i])
-    entropy = calculate_entropy(md5_hash)
-    total_xor = xor_value ^ blake2b_xor ^ combined_xor
-    last_digit = int(md5_hash[-1], 16)
-
-    total_score = (
-        digits_sum * 0.05 + hex_sum * 0.05 + binary_ones * 0.05 +
-        bit_1_percentage * 0.1 + hex_greater_than_8 * 0.1 + lucas_weighted_sum * 0.05 +
-        hex_std_dev * 0.05 + complexity * 0.05 + fourier_energy * 0.05 +
-        sha224_sum * 0.05 + symmetry_score * 0.05 + geometric_mean_value * 0.05 +
-        combined_xor * 0.05 + fibonacci_score * 0.05 + blake2b_xor * 0.05 +
-        weighted_edge * 0.05 + sum(mod_values) * 0.05 + max_repeating_char * 0.05 +
-        odd_chars * 0.05 + middle_bytes * 0.05 + fibo_in_md5 * 0.05 +
-        sha1_symmetry * 0.05 + entropy * 0.05 + total_xor * 0.05 +
-        last_digit * 0.05
-    ) % 100
-
-    return {
-        "tai": round(total_score, 2),
-        "xiu": round(100 - total_score, 2),
-        "last_digit": last_digit,
-        "bit_1_percentage": round(bit_1_percentage * 100, 2),
-        "hex_8_percentage": round(hex_greater_than_8 * 100, 2),
-        "hex_std_dev": round(hex_std_dev, 2),
-        "entropy": round(entropy, 4),
+def analyze_and_predict(history: list) -> tuple:
+    if len(history) != 5:
+        return "Không đủ dữ liệu", 50
+ 
+    patterns = {
+        "bệt": lambda h: h.count(h[-1]) >= 3,
+        "đảo_1_1": lambda h: all(h[i] != h[i + 1] for i in range(4)),
+        "kép_2_2": lambda h: h[:2] == h[2:] and h[:2] in [["Tài", "Tài"], ["Xỉu", "Xỉu"]],
+        "1_2_3": lambda h: h[:1] == h[1:3] and h[3:] == [h[1]] * 2,
+        "3_3": lambda h: h[:3] == [h[0]] * 3 and h[3:] == [h[3]] * 3,
+        "inverse_pattern": lambda h: h.count("Tài") >= 4 and h[-1] == "Xỉu",
+        "synchronized_pattern": lambda h: len(set(h)) == 1,
+        "u_shaped": lambda h: h[0] == "Tài" and h[-1] == "Tài" and h[1] == "Xỉu" and h[2] == "Xỉu",
+        "parallel_pattern": lambda h: h[:3] == ["Tài"] * 3 and h[3:] == ["Xỉu"] * 2,
+        "wavy_pattern": lambda h: all(h[i] != h[i + 1] for i in range(len(h) - 1)),
+        "tai_tai_xiu_xiu": lambda h: h[:2] == ["Tài", "Tài"] and h[2:4] == ["Xỉu", "Xỉu"],
+        "cầu_công": lambda h: h.count("Tài") == 3 and h.count("Xỉu") == 2,
+        "đảo_chieu": lambda h: h == ["Xỉu", "Tài", "Xỉu", "Tài", "Xỉu"],
     }
+
+    predictions = {"Tài": 0, "Xỉu": 0}
+
+    for name, rule in patterns.items():
+        if rule(history):
+            if name in ["bệt", "synchronized_pattern"]:
+                predictions[history[-1]] += 3
+            elif name == "đảo_1_1":
+                predictions["Tài" if history[-1] == "Xỉu" else "Xỉu"] += 3
+            elif name == "kép_2_2":
+                predictions["Tài" if history[-1] == "Xỉu" else "Xỉu"] += 2
+            elif name == "1_2_3":
+                predictions[history[-1]] += 2
+            elif name == "3_3":
+                predictions["Tài" if history[-1] == "Xỉu" else "Xỉu"] += 2
+            elif name == "inverse_pattern":
+                predictions["Tài"] += 4
+            elif name == "u_shaped":
+                predictions["Xỉu"] += 3
+            elif name == "parallel_pattern":
+                predictions["Xỉu"] += 2
+            elif name == "wavy_pattern":
+                predictions["Tài" if history[-1] == "Xỉu" else "Xỉu"] += 2
+            elif name == "tai_tai_xiu_xiu":
+                predictions["Xỉu"] += 3
+            elif name == "cầu_công":
+                predictions["Tài"] += 2
+            elif name == "đảo_chieu":
+                predictions["Tài"] += 3
+
+    total = predictions["Tài"] + predictions["Xỉu"]
+    if total == 0:
+        counts = {"Tài": history.count("Tài"), "Xỉu": history.count("Xỉu")}
+        if counts["Tài"] > counts["Xỉu"]:
+            return "Tài", 60
+        elif counts["Tài"] < counts["Xỉu"]:
+            return "Xỉu", 60
+        else:
+            return "Tài", 50
+
+    tai_percentage = (predictions["Tài"] / total) * 100
+    xiu_percentage = (predictions["Xỉu"] / total) * 100
+
+    if tai_percentage > xiu_percentage:
+        return "Tài", round(tai_percentage, 2)
+    else:
+        return "Xỉu", round(xiu_percentage, 2)
+
+
+def convert_history(input_str: str) -> list:
+    mapping = {"T": "Tài", "X": "Xỉu"}
+    try:
+        return [mapping[char] for char in input_str.upper()]
+    except KeyError:
+        return []
 
 @dp.message_handler(commands=["start"])
 async def start_cmd(message: types.Message):
@@ -191,15 +204,16 @@ async def start_cmd(message: types.Message):
     if not ok:
         await message.reply("❌ Bạn chưa được cấp quyền sử dụng bot!")
         return
-    await message.reply("👋 Chào mừng bạn! Gửi một chuỗi MD5 để tôi phân tích giúp bạn.\nVí dụ: c54954fc1fcaa22a372b618eea9cb9bd")
+    await message.reply("👋 Chào mừng bạn! Gửi một chuỗi MD5 hoặc một chuỗi lịch sử cầu để tôi phân tích giúp bạn.\nVí dụ: c54954fc1fcaa22a372b618eea9cb9bd\nHoặc: TXTXX")
 
 @dp.message_handler(commands=["help"])
 async def help_cmd(message: types.Message):
     is_ad = is_admin(message.from_user.id)
-    text = "🌟 TRỢ GIÚP BOT ZEALAND PREMIUM 🌟\n"
+    text = "🌟 TRỢ GIÚP BOT NEURIX PREMIUM 🌟\n"
     text += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
     text += "📋 Danh sách lệnh cơ bản:\n"
     text += "🔹 /start - Khởi động bot và bắt đầu phân tích\n"
+    text += "🔹 /pricelist - Bảng giá bot\n"
     text += "🔹 /id - Xem thông tin ID của bạn\n"
     text += "🔹 /help -  Hiển thị menu trợ giúp này\n"
     text += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -297,6 +311,19 @@ async def broadcast(message: types.Message):
             fail += 1
     await message.reply(f"✅ Gửi thành công: {success}\n❌ Thất bại: {fail}")
 
+@dp.message_handler(commands=["pricelist"])
+async def pricelist_cmd(message: types.Message):
+    await message.reply(
+        "💵 <b>BẢNG GIÁ SỬ DỤNG BOT:</b>\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        "🔹 <b>1 Tuần</b>   : 100K\n"
+        "🔹 <b>1 Tháng</b>  : 250K\n"
+        "🔹 <b>2 Tháng</b>  : 400K\n"
+        "🔹 <b>Vĩnh viễn</b>: 600K\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        "💬 Liên hệ admin để kích hoạt: https://t.me/Cstooldudoan11",
+        parse_mode="HTML"
+    )
 
 @dp.message_handler(commands=["danhsach"])
 async def danhsach_cmd(message: types.Message):
@@ -310,28 +337,69 @@ async def danhsach_cmd(message: types.Message):
             lines.append(f"👤 {uid} - Hạn: {info['expires']}")
     await message.reply("\n".join(lines))
 
+import html  # Đảm bảo đã import để escape MD5
+
 @dp.message_handler(lambda msg: len(msg.text) == 32 and all(c in '0123456789abcdefABCDEF' for c in msg.text))
 async def md5_handler(message: types.Message):
     ok, _ = check_user(message.from_user.id)
     if not ok:
         await message.reply("🚫 Bạn chưa được cấp quyền sử dụng bot này")
         return
-    result = analyze_md5_advanced(message.text.lower())
 
-    reply_text = (
-    f"<b>🎰 PHÂN TÍCH MD5 SIÊU CHUẨN 🔮✨🌌🎰</b>\n\n"
-    f"🔮 <code>{message.text.lower()}</code>🔮\n"
-    f"🔢 Số cuối: <b>{result['last_digit']}</b> | Entropy: <b>{result['entropy']}</b>\n"
-    f"⚙️ Tỷ lệ bit 1:  <b>{result['bit_1_percentage']}%</b>\n"
-    f"🔢 Tỷ lệ Hex ≥8: <b>{result['hex_8_percentage']}%</b>\n"
-    f"📉 Độ lệch chuẩn Hex: <b>{result['hex_std_dev']}</b>\n"
-    f"🌌 <b>Kết quả:🔥 </b> {'TÀI' if result['tai'] >= 50 else 'XỈU'}🌌\n"
-    f"💥 Tài: <b>{result['tai']}%</b>\n"
-    f"💦 Xỉu: <b>{result['xiu']}%</b>\n\n"
-    f"👤<b>{message.from_user.full_name}</b>\n"
+    md5 = message.text.lower()
+    xiu, tai = calc_result(md5)
+    ent = entropy(md5)
+    ai = ai_score(xiu, tai, ent)
+    deep = deep_score(md5)
+    dice, total = get_dice(md5, num_dice=3)
+
+    md5_clean = html.escape(md5)  # Escape MD5 để tránh lỗi HTML
+
+    result = (
+        f"<b>🎰 PHÂN TÍCH MD5 SIÊU CHUẨN 🔮✨🌌🎰</b>\n\n"
+        f"<b>🔮 MD5:</b> <code>{md5_clean}</code> 🔮\n\n"
+        f"🧮 <b>Entropy:</b> {ent:.4f}\n"
+        f"⚙️ <b>AI Score:</b> {ai:.2f}%\n"
+        f"📉 <b>Deep Score:</b> {deep:.2f}%\n"
+        f"🌌 <b>Kết quả dự đoán:</b> {'<b>❄️ TÀI</b>' if tai > xiu else '<b>🔥 XỈU</b>'}🌌\n"
+        f"💥 <b>Xỉu:</b> {xiu}%[🟥🟩🟦⬜️⬜️⬜️]\n"
+        f"💦 <b>Tài:</b> {tai}%[🟥🟩🟦⬜️⬜️⬜️]\n"
+
+        f"👤 <i>Yêu cầu bởi: {message.from_user.full_name}</i>"
+        
     )
-    await message.reply(reply_text, parse_mode="HTML")
+
+    await message.reply(result, parse_mode="HTML")
+
+     
+# Xử lý chuỗi cầu như TXTXX
+@dp.message_handler(lambda msg: len(msg.text) == 5 and all(c in "TXtx" for c in msg.text))
+async def history_handler(message: types.Message):
+    ok, _ = check_user(message.from_user.id)
+    if not ok:
+        await message.reply("🚫 Bạn chưa được cấp quyền sử dụng bot này")
+        return
+
+    history = convert_history(message.text)
+    if len(history) != 5:
+        await message.reply("❗ Chuỗi không hợp lệ. Chỉ nhập 5 ký tự gồm T và X.")
+        return
+
+    prediction, percentage = analyze_and_predict(history)
+
+    # Format kết quả
+    history_str = " → ".join(history)
+    icon = "🔥" if prediction == "Tài" else "❄️"
+    await message.reply(
+        f"📊 <b>PHÂN TÍCH LỊCH SỬ CẦU</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"🧮 Lịch sử: <code>{history_str}</code>\n"
+        f"🔮 Dự đoán tiếp theo: <b>{icon} {prediction}</b>\n"
+        f"📈 Độ tin cậy: <b>{percentage:.2f}%</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"👤 <i>Yêu cầu bởi: {message.from_user.full_name}</i>",
+        parse_mode="HTML"
+    )
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
-  
