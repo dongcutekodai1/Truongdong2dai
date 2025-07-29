@@ -9,7 +9,6 @@ import pytz
 import hashlib
 import math
 from collections import Counter
-from collections import Counter
 from math import log2
 
 def entropy(s):
