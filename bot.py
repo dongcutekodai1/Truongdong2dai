@@ -18,7 +18,7 @@ def entropy(s):
 
 # === CẤU HÌNH ===
 TOKEN = "8432695700:AAF1_Q30qhMpOAL2ZhsgnVsQF0_l9wZwP2E"
-ADMIN_ID = 6902698316,6381480476  # ID admin chính
+ADMIN_ID = 6902698316  # ID admin chính
 
 activated_users = {}
 
